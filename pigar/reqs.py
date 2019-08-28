@@ -25,7 +25,7 @@ def project_import_modules(project_path, ignores):
     """Get entire project all imported modules."""
     modules = ImportedModules()
     try_imports = set()
-    local_mods = list()
+    local_mods = set()
     cur_dir = os.getcwd()
     ignore_paths = collections.defaultdict(set)
     if not ignores:
@@ -42,16 +42,23 @@ def project_import_modules(project_path, ignores):
                            if d not in ignore_paths[dirpath]]
         logger.info('Extracting directory: {0}'.format(dirpath))
         py_files = list()
+        basemod = None
+        if '__init__.py' in files:
+            relative_path = dirpath.lstrip(project_path).strip('/')
+            if relative_path:
+                basemod = '.'.join(relative_path.split('/'))
+                local_mods.add(basemod)
         for fn in files:
             # C extension.
             if fn.endswith('.so'):
-                local_mods.append(fn[:-3])
+                local_mods.add(fn[:-3])
             # Normal Python file.
-            if fn.endswith('.py'):
-                local_mods.append(fn[:-3])
+            if fn.endswith('.py') and fn != '__init__.py':
+                mod = fn[:-3]
+                if basemod:
+                    mod = '.'.join([basemod, mod])
+                local_mods.add(mod)
                 py_files.append(fn)
-        if '__init__.py' in files:
-            local_mods.append(os.path.basename(dirpath))
         for file in py_files:
             fpath = os.path.join(dirpath, file)
             fake_path = fpath.split(cur_dir)[1][1:]
@@ -62,6 +69,7 @@ def project_import_modules(project_path, ignores):
                 try_imports |= try_ipts
 
     logger.info('Finish extracting in project: {0}'.format(project_path))
+    logger.debug('Possible local modules: {0}'.format(local_mods))
     return modules, try_imports, local_mods
 
 

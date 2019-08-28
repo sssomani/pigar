@@ -145,6 +145,8 @@ class GenerateReqs(object):
                 print(Color.BLUE('Checking modules on the PyPI...'))
                 for name, detail in guess.sorted_items():
                     logger.info('Checking %s on the PyPI ...', name)
+                    # FIXME(damnever): try to search the package in PyPI by
+                    # the import name if it is not in database.
                     with database() as db:
                         rows = db.query_all(name)
                         pkgs = [row.package for row in rows]
@@ -170,7 +172,7 @@ class GenerateReqs(object):
             if guess:
                 print(Color.RED('These modules are not found:'))
                 self._invalid_reqs(guess)
-                print(Color.RED('Maybe or you need update database.'))
+                print(Color.RED('Maybe you need to update the database.'))
 
     def extract_reqs(self):
         """Extract requirements from project."""
@@ -231,6 +233,7 @@ class GenerateReqs(object):
                 continue
             if module in local_mods:
                 self._maybe_local_mods.add(module)
+                continue
             if is_stdlib(module):
                 continue
             candidates.add(module)
