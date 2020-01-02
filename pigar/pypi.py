@@ -26,7 +26,6 @@ from .unpack import top_level
 from .log import logger
 from .utils import Color, compare_version, cmp_to_key, binary_type
 
-
 PYPI_URL = 'https://pypi.org'
 PKG_URL = urljoin(PYPI_URL, '/pypi/{0}')
 PKGS_URL = urljoin(PYPI_URL, '/simple/')
@@ -108,13 +107,11 @@ class Updater(object):
         if proc_num == 1:
             pkg_names = ThreadSharableQueue()
             _extract_pkg_names(index, pkg_names.put)
-            self._thread_updater = ThreadPoolUpdater(
-                pkg_names, threads_total)
+            self._thread_updater = ThreadPoolUpdater(pkg_names, threads_total)
         else:
             self._pkg_names = ProcessSharableQueue()
             t = threading.Thread(
-                target=_extract_pkg_names,
-                args=(index, self._pkg_names.put)
+                target=_extract_pkg_names, args=(index, self._pkg_names.put)
             )
             t.daemon = True
             t.start()
@@ -166,9 +163,10 @@ class ThreadPoolUpdater(object):
 
     def run(self):
         with concurrent.futures.ThreadPoolExecutor(
-                max_workers=self._max_workers) as executor:
+            max_workers=self._max_workers
+        ) as executor:
             # Incase of unexpected error happens.
-            for _ in range(self._max_workers*3):
+            for _ in range(self._max_workers * 3):
                 future = executor.submit(self.extract_and_update)
                 self._futures.append(future)
 
@@ -198,8 +196,11 @@ class ThreadPoolUpdater(object):
                     db.insert_package_with_imports(pkg_name, top_levels)
                 except (requests.RequestException, KeyError) as e:
                     logger.error(
-                        ('Maybe package "%s" is no longer available'
-                         ' or it is non-standard: %r'), pkg_name, e)
+                        (
+                            'Maybe package "%s" is no longer available'
+                            ' or it is non-standard: %r'
+                        ), pkg_name, e
+                    )
         except Empty:
             pass
         except Exception:
@@ -212,12 +213,17 @@ class ThreadPoolUpdater(object):
 
 class Downloader(object):
     _HEADERS = {
-        'Accept': '*/*',
-        'Accept-Encoding': 'gzip',
-        'Accept-Language': 'en-US,en;q=0.8,zh-CN;q=0.6,zh;q=0.4',
-        'User-Agent': ('Mozilla/5.0 (X11; Linux x86_64; rv:13.0) '
-                       'AppleWebKit/537.36 (KHTML, like Gecko) '
-                       'Chrome/44.0.2403.157 Safari/537.36'),
+        'Accept':
+        '*/*',
+        'Accept-Encoding':
+        'gzip',
+        'Accept-Language':
+        'en-US,en;q=0.8,zh-CN;q=0.6,zh;q=0.4',
+        'User-Agent': (
+            'Mozilla/5.0 (X11; Linux x86_64; rv:13.0) '
+            'AppleWebKit/537.36 (KHTML, like Gecko) '
+            'Chrome/44.0.2403.157 Safari/537.36'
+        ),
     }
 
     def __init__(self):

@@ -15,13 +15,16 @@ from .utils import Color, parse_reqs, print_table, lines_diff
 from .log import logger, enable_pretty_logging
 from .modules import ReqsModules
 
+from requests.exceptions import HTTPError
+
 
 class Main(object):
-
     def __init__(self):
         # Parse command arguments.
-        (log_level, updatedb, check_path, names, ignores, save_path,
-         project_path, comparison_operator) = parse_args()
+        (
+            log_level, updatedb, check_path, names, ignores, save_path,
+            project_path, comparison_operator
+        ) = parse_args()
         # Enable logging.
         enable_pretty_logging(log_level=log_level)
         # Just allow do one thing at each time.
@@ -29,12 +32,14 @@ class Main(object):
             self.update_db()
         elif check_path:
             self.check_reqs_latest_version(
-                check_path, ignores, comparison_operator)
+                check_path, ignores, comparison_operator
+            )
         elif names:
             self.search_package_by_name(names)
         else:
-            self.generate_reqs(save_path, project_path,
-                               ignores, comparison_operator)
+            self.generate_reqs(
+                save_path, project_path, ignores, comparison_operator
+            )
 
     @property
     def installed_pkgs(self):
@@ -59,8 +64,9 @@ class Main(object):
             msg += 'Maybe you need update database.'
             print(Color.YELLOW(msg))
 
-    def check_reqs_latest_version(self, check_path, ignores,
-                                  comparison_operator):
+    def check_reqs_latest_version(
+        self, check_path, ignores, comparison_operator
+    ):
         """Check requirements latest version."""
         print(Color.BLUE('Starting check requirements latest version ...'))
         files = list()
@@ -74,11 +80,16 @@ class Main(object):
                     files.append(os.path.abspath(fn))
             # If not found in directory, generate requirements.
             if not files:
-                print(Color.YELLOW('Requirements file not found, '
-                                   'generate requirements ...'))
+                print(
+                    Color.YELLOW(
+                        'Requirements file not found, '
+                        'generate requirements ...'
+                    )
+                )
                 save_path = os.path.join(check_path, 'requirements.txt')
-                self.generate_reqs(save_path, check_path,
-                                   ignores, comparison_operator)
+                self.generate_reqs(
+                    save_path, check_path, ignores, comparison_operator
+                )
                 files.append(save_path)
         else:
             files.append(check_path)
@@ -101,17 +112,25 @@ class Main(object):
         print()
         print_table(pkg_versions)
 
-    def generate_reqs(self, save_path, check_path,
-                      ignores, comparison_operator):
-        gr = GenerateReqs(save_path, check_path, ignores,
-                          self.installed_pkgs, comparison_operator)
+    def generate_reqs(
+        self, save_path, check_path, ignores, comparison_operator
+    ):
+        gr = GenerateReqs(
+            save_path, check_path, ignores, self.installed_pkgs,
+            comparison_operator
+        )
         gr.generate_reqs()
 
 
 class GenerateReqs(object):
-
-    def __init__(self, save_path, project_path, ignores,
-                 installed_pkgs, comparison_operator='=='):
+    def __init__(
+        self,
+        save_path,
+        project_path,
+        ignores,
+        installed_pkgs,
+        comparison_operator='=='
+    ):
         self._save_path = save_path
         self._project_path = project_path
         self._ignores = ignores
@@ -133,10 +152,11 @@ class GenerateReqs(object):
         if guess:
             print(Color.RED('The following modules are not found yet:'))
             self._invalid_reqs(guess)
-            msg = ('Some of them may not install in local environment.\n'
-                   'Try to search PyPI for the missing modules and filter'
-                   ' some unnecessary modules? (y/[N]) '
-                   ).format(pyver)
+            msg = (
+                'Some of them may not install in local environment.\n'
+                'Try to search PyPI for the missing modules and filter'
+                ' some unnecessary modules? (y/[N]) '
+            ).format(pyver)
             sys.stdout.write(Color.RED(msg))
             sys.stdout.flush()
             answer = sys.stdin.readline()
@@ -153,8 +173,11 @@ class GenerateReqs(object):
                             if name in self._maybe_local_mods:
                                 self._maybe_local_mods.remove(name)
                         for pkg in self._best_matchs(name, pkgs):
-                            latest = check_latest_version(pkg)
-                            reqs.add(pkg, latest, detail.comments)
+                            try:
+                                latest = check_latest_version(pkg)
+                                reqs.add(pkg, latest, detail.comments)
+                            except HTTPError as e:
+                                logger.warn('Checking %s failed: %e', pkg, e)
 
         # Save old requirements file.
         self._save_old_reqs()
@@ -177,7 +200,8 @@ class GenerateReqs(object):
         reqs = ReqsModules()
         guess = ReqsModules()
         modules, try_imports, local_mods = project_import_modules(
-            self._project_path, self._ignores)
+            self._project_path, self._ignores
+        )
         app_name = os.path.basename(self._project_path)
         if app_name in local_mods:
             local_mods.remove(app_name)
@@ -197,20 +221,34 @@ class GenerateReqs(object):
         return reqs, try_imports, guess
 
     def _write_reqs(self, reqs):
-        print(Color.BLUE('Writing requirements to "{0}"'.format(
-            self._save_path)))
+        print(
+            Color.BLUE(
+                'Writing requirements to "{0}"'.format(self._save_path)
+            )
+        )
         with open(self._save_path, 'w+') as f:
-            f.write('# Requirements automatically generated by pigar.\n'
-                    '# https://github.com/damnever/pigar\n')
+            f.write(
+                '# Requirements automatically generated by pigar.\n'
+                '# https://github.com/damnever/pigar\n'
+            )
             for k, v in reqs.sorted_items():
                 f.write('\n')
-                f.write(''.join(['# {0}\n'.format(c)
-                                 for c in v.comments.sorted_items()]))
+                f.write(
+                    ''.join(
+                        [
+                            '# {0}\n'.format(c)
+                            for c in v.comments.sorted_items()
+                        ]
+                    )
+                )
                 if k == '-e':
                     f.write('{0} {1}\n'.format(k, v.version))
                 elif v:
-                    f.write('{0} {1} {2}\n'.format(
-                        k, self._comparison_operator, v.version))
+                    f.write(
+                        '{0} {1} {2}\n'.format(
+                            k, self._comparison_operator, v.version
+                        )
+                    )
                 else:
                     f.write('{0}\n'.format(k))
 
